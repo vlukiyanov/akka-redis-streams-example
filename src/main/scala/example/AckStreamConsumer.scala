@@ -6,12 +6,23 @@ import akka.event.Logging
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, Keep, RunnableGraph, Sink, Source}
 import akka.stream.{ActorMaterializer, ClosedShape}
 import api.{RedisStreamsAckSink, RedisStreamsFlow, RedisStreamsSource}
-import org.redisson.api.StreamMessageId
+import org.redisson.Redisson
+import org.redisson.api.{RStream, StreamMessageId}
+import org.redisson.client.codec.StringCodec
 
 import scala.concurrent.duration.DurationInt
 
 
 object AckStreamConsumer extends App {
+  val redisson = Redisson.create
+  val s: RStream[String, String] = redisson.getStream("testStream", new StringCodec("UTF-8"))
+  s.trim(0)
+  try {
+    s.removeGroup("testGroup")
+    s.createGroup("testGroup")
+  } catch {
+    case _: Throwable => println("Group already exists.")
+  }
 
   implicit val system = ActorSystem("FirstPrinciples")
   implicit val materializer = ActorMaterializer()

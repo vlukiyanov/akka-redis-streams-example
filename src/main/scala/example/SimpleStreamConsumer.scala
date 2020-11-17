@@ -6,6 +6,9 @@ import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, ClosedShape}
 import api.{RedisStreamsFlow, RedisStreamsSource}
+import org.redisson.Redisson
+import org.redisson.api.RStream
+import org.redisson.client.codec.StringCodec
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -13,6 +16,15 @@ import scala.concurrent.duration.DurationInt
 
 
 object SimpleStreamConsumer extends App {
+  val redisson = Redisson.create
+  val s: RStream[String, String] = redisson.getStream("testStream", new StringCodec("UTF-8"))
+  s.trim(0)
+  try {
+    s.removeGroup("testGroup")
+    s.createGroup("testGroup")
+  } catch {
+    case _: Throwable => println("Group already exists.")
+  }
 
   implicit val system = ActorSystem("FirstPrinciples")
   implicit val materializer = ActorMaterializer()
