@@ -2,74 +2,43 @@ package example
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.scaladsl.{Flow, GraphDSL, RunnableGraph, Sink, Source}
+import akka.event.Logging
+import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.{ActorMaterializer, ClosedShape}
-import api.{RedisStreamsAckSink, RedisStreamsFlow, RedisStreamsSource}
-import org.redisson.Redisson
-import org.redisson.api.{RStream, StreamMessageId}
+import api.{RedisStreamsFlow, RedisStreamsSource}
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
+
 
 object SimpleStreamConsumer extends App {
 
   implicit val system = ActorSystem("FirstPrinciples")
   implicit val materializer = ActorMaterializer()
 
-  val redisson = Redisson.create
+  val redisStreamsFlow = RedisStreamsFlow.create("testStream")
+  val messageSource = Source(1 to 1000000 map { i => Map(s"$i" -> "test")})
 
-  val s: RStream[String, String] = redisson.getStream("test")
+  system.eventStream.setLogLevel(Logging.ErrorLevel)
 
-  val f = Source.fromGraph(new RedisStreamsSource("test", "test", "test"))
-  val g = Flow.fromGraph(new RedisStreamsFlow("test"))
-  val a = Sink.fromGraph(new RedisStreamsAckSink("test", "test"))
+  // start producing message to Redis
+  messageSource
+    .via(redisStreamsFlow)
+    .to(Sink.ignore)
+    .run()
 
-  val leftFlow: Sink[(StreamMessageId, String, String), NotUsed] = Flow
-    .fromFunction(x => x._1)
-    .to(a)
+  val redisStreamsSource = RedisStreamsSource.create("testStream", "testGroup", "testConsumer")
 
-  val flow = RunnableGraph.fromGraph(GraphDSL.create(f, leftSink, rightSink)
-  ((_, _, _)) { implicit b =>
-    (s, l, r) =>
-
-
-      sourceInput ~> pw.in
-      pw.out0 ~> leftSink
-      pw.out1 ~> rightSink
-
-      ClosedShape
-  })
-
-  // TODO handle consumer group creation
-  // TODO handle serialisation
-
-  for {
-    v <- 1 to 1212
-  } {
-    s.addAsync("test", s"$v").asScala
-  }
-
-  Future {
-    Thread.sleep(1000)
-  }.onComplete(_ => {
-    for {
-      v <- 1 to 9
-    } {
-      s.addAsync("test", s"$v").asScala
+  // do no ack the messages; the rate measurement is from https://stackoverflow.com/a/49279641
+  redisStreamsSource
+    .mapAsyncUnordered(24) {
+      item => Future { item.key.toInt % 100000 }
     }
-  })
-
-  f
-    .mapAsync(1) {
-      item =>
-        Future {
-          item._1
-        }
-    }
-    .map(item => {
-      item
-    })
-    .groupedWithin(100, 100.millisecond)
-    .to(a)
+    .conflateWithSeed(_ => 0){ case (acc, _) => acc + 1 }
+    .zip(Source.tick(1.second, 1.second, NotUsed))
+    .map(_._1)
+    .toMat(Sink.foreach(i => println(s"$i elements/second")))(Keep.right)
     .run()
 
 }
