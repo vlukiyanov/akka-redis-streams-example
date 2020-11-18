@@ -1,5 +1,7 @@
 package api
 
+import java.util.concurrent.TimeUnit
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler}
@@ -13,15 +15,13 @@ import org.redisson.config.Config
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
 
-object RedisStreamsSource {
-  sealed case class RedisMessage(id: StreamMessageId, key: String, value: String)
-
-  def create(stream: String, group: String, consumer: String, config: Option[Config] = None): Source[RedisMessage, NotUsed] =
-    Source.fromGraph(new RedisStreamsSource(stream, group, consumer, config))
+object RedisStreamsClaim {
+  def create(stream: String, group: String, consumer: String, timeOut: Long, config: Option[Config] = None): Source[RedisMessage, NotUsed] =
+    Source.fromGraph(new RedisStreamsClaim(stream, group, consumer, timeOut, config))
 }
 
-class RedisStreamsSource(stream: String, group: String, consumer: String, config: Option[Config] = None) extends GraphStage[SourceShape[RedisMessage]] {
-  val out: Outlet[RedisMessage] = Outlet("api.RedisStreamsSource")
+class RedisStreamsClaim(stream: String, group: String, consumer: String, timeOut: Long, config: Option[Config] = None) extends GraphStage[SourceShape[RedisMessage]] {
+  val out: Outlet[RedisMessage] = Outlet("api.RedisStreamsClaim")
   override val shape: SourceShape[RedisMessage] = SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
@@ -37,16 +37,20 @@ class RedisStreamsSource(stream: String, group: String, consumer: String, config
         @tailrec
         override def onPull(): Unit = {
 
-          val elements = for {
-            item <- s.readGroup(group, consumer).entrySet.asScala
-            key = item.getKey
-            value = item.getValue.entrySet.asScala.head
-          } yield RedisMessage(key, value.getKey, value.getValue)
+          val messages: List[StreamMessageId] = for {
+            item <- s.listPending(group, consumer, StreamMessageId.MIN, StreamMessageId.MAX, 1000).asScala.toList
+            if item.getIdleTime > timeOut
+          } yield item.getId
 
-          if(elements.isEmpty) {
+          if(messages.isEmpty) {
             Thread.sleep(150)
             this.onPull()
           } else {
+            val elements = for {
+              item <- s.claim(group, consumer, timeOut, TimeUnit.MILLISECONDS, messages: _*).entrySet.asScala
+              key = item.getKey
+              value = item.getValue.entrySet.asScala.head
+            } yield RedisMessage(key, value.getKey, value.getValue)
             emitMultiple(out, elements.toList)
           }
         }

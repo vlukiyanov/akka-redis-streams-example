@@ -36,11 +36,26 @@ class RedisStreamsFlow(stream: String, config: Option[Config] = None) extends Gr
         override def onPush(): Unit = {
           push(out, s.addAll(grab(in).asJava))
         }
+
+        override def onUpstreamFinish(): Unit = {
+          redisson.shutdown()
+          super.onUpstreamFinish()
+        }
+
+        override def onUpstreamFailure(ex: scala.Throwable): Unit = {
+          redisson.shutdown()
+          super.onUpstreamFailure(ex)
+        }
       })
 
       setHandler(out, new OutHandler {
         override def onPull(): Unit = {
           pull(in)
+        }
+
+        override def onDownstreamFinish(cause: scala.Throwable): Unit = {
+          redisson.shutdown()
+          super.onDownstreamFinish(cause)
         }
       })
     }

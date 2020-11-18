@@ -44,6 +44,16 @@ class RedisStreamsAckSink(stream: String, group: String, config: Option[Config] 
           s.ack(group, grab(in): _*)
           pull(in)
         }
+
+        override def onUpstreamFailure(ex: scala.Throwable): Unit = {
+          redisson.shutdown()
+          super.onUpstreamFailure(ex)
+        }
+
+        override def onUpstreamFinish(): Unit = {
+          redisson.shutdown()
+          super.onUpstreamFinish()
+        }
       })
 
     }

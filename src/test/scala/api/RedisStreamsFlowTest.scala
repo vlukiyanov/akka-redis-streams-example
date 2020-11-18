@@ -56,6 +56,9 @@ class RedisStreamsFlowTest extends TestKit(ActorSystem("TestingAkkaStreams"))
       testSourceProbe.sendNext(Map("a" -> "b", "c" -> "d"))
       testSinkProbe.expectNext()
 
+      testSinkProbe.cancel()
+      testSinkProbe.expectNoMessage(1.seconds)
+
       eventually {
         val p = s.size()
         assert(p == 2)

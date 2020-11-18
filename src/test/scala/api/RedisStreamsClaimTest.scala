@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.DurationInt
 
-class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
+class RedisStreamsClaimTest extends TestKit(ActorSystem("TestingAkkaStreams"))
   with AnyWordSpecLike
   with BeforeAndAfterAll
   with Eventually {
@@ -26,8 +26,8 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
 
   override def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 
-  "A RedisStreamsSource" must {
-    "must be setup to accept all messages sent" in {
+  "A RedisStreamsClaim" must {
+    "pick up pending messages" in {
       val redisson = Redisson.create
       val s: RStream[String, String] = redisson.getStream("testStream", new StringCodec("UTF-8"))
       s.trim(0)
@@ -43,6 +43,7 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
       } yield s.add("test", "test")
 
       val source = RedisStreamsSource.create("testStream", "testGroup", "testConsumer")
+      val claim = RedisStreamsClaim.create("testStream", "testGroup", "testConsumer", 100)
 
       val f = source.toMat(TestSink.probe[RedisMessage])(Keep.right)
       val probe = f.run()
@@ -51,7 +52,13 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
       probe.expectNextN(100)
       probe.request(1)
       probe.expectNoMessage(1.second)
-      probe.cancel()
+
+      val c = claim.toMat(TestSink.probe[RedisMessage])(Keep.right)
+      val cprobe = c.run()
+
+      cprobe.request(100)
+      cprobe.expectNextN(100)
+      cprobe.request(1)
       probe.expectNoMessage(1.second)
 
       eventually {
