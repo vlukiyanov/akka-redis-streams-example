@@ -9,7 +9,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
 import api.RedisStreamsSource.RedisMessage
 import org.redisson.Redisson
-import org.redisson.api.RStream
+import org.redisson.api.{RStream, StreamMessageId}
 import org.redisson.client.codec.StringCodec
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
@@ -38,6 +38,10 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
         case _: Throwable => println("Group already exists.")
       }
 
+      val l: List[StreamMessageId] = for {
+        _ <- 1 to 100 toList
+      } yield s.add("test", "test")
+
       val source = RedisStreamsSource.create("testStream", "testGroup", "testConsumer")
 
       val f = source.toMat(TestSink.probe[RedisMessage])(Keep.right)
@@ -46,6 +50,8 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
       probe.request(100)
       probe.expectNextN(100)
       probe.request(1)
+      probe.expectNoMessage(1.second)
+      probe.cancel()
       probe.expectNoMessage(1.second)
 
       eventually {

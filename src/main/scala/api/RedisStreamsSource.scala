@@ -50,6 +50,11 @@ class RedisStreamsSource(stream: String, group: String, consumer: String, config
             emitMultiple(out, elements.toList)
           }
         }
+
+        override def onDownstreamFinish(cause: scala.Throwable): Unit = {
+          redisson.shutdown()
+          super.onDownstreamFinish(cause)
+        }
       })
     }
   }
