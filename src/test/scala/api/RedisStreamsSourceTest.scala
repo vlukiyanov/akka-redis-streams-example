@@ -7,20 +7,19 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import api.RedisStreamsSource.RedisMessage
-import org.redisson.Redisson
-import org.redisson.api.{RStream, StreamMessageId}
-import org.redisson.client.codec.StringCodec
+import io.lettuce.core.{RedisClient, StreamMessage, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 
-class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
-  with AnyWordSpecLike
-  with BeforeAndAfterAll
-  with Eventually {
+class RedisStreamsSourceTest
+    extends TestKit(ActorSystem("TestingAkkaStreams"))
+    with AnyWordSpecLike
+    with BeforeAndAfterAll
+    with Eventually {
 
   implicit val materializer = ActorMaterializer()
 
@@ -28,35 +27,45 @@ class RedisStreamsSourceTest extends TestKit(ActorSystem("TestingAkkaStreams"))
 
   "A RedisStreamsSource" must {
     "must be setup to accept all messages sent" in {
-      val redisson = Redisson.create
-      val s: RStream[String, String] = redisson.getStream("testStream", new StringCodec("UTF-8"))
-      s.trim(0)
+      val client: RedisClient = RedisClient.create("redis://localhost")
+      val commands = client.connect.sync()
+      val reactiveCommands = client.connect.reactive()
+      commands.xtrim("testStream", 0)
+
+      val l: List[String] = for {
+        _ <- 1 to 100 toList
+      } yield commands.xadd("testStream", Map("a" -> "b").asJava)
+
       try {
-        s.removeGroup("testGroup")
-        s.createGroup("testGroup")
+        commands.xgroupDestroy("testStream", "testGroup")
+      } catch {
+        case _: Throwable => println("Group doesn't exist.")
+      }
+
+      try {
+        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
+                              "testGroup")
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
-      val l: List[StreamMessageId] = for {
-        _ <- 1 to 100 toList
-      } yield s.add("test", "test")
+      val source = RedisStreamsSource.create(reactiveCommands,
+                                             "testStream",
+                                             "testGroup",
+                                             "testConsumer")
 
-      val source = RedisStreamsSource.create("testStream", "testGroup", "testConsumer")
-
-      val f = source.toMat(TestSink.probe[RedisMessage])(Keep.right)
+      val f =
+        source.toMat(TestSink.probe[StreamMessage[String, String]])(Keep.right)
       val probe = f.run()
 
       probe.request(100)
       probe.expectNextN(100)
       probe.request(1)
       probe.expectNoMessage(1.second)
-      probe.cancel()
-      probe.expectNoMessage(1.second)
 
       eventually {
-        val p = s.getPendingInfo("testGroup")
-        assert(p.getTotal == 100)
+        val p = commands.xpending("testStream", "testGroup")
+        assert(p.getCount == 100)
       }
 
     }
