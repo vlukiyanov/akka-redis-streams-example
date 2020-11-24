@@ -15,7 +15,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 
-class RedisStreamsSourceTest
+class RedisStreamsAckSinkTest
     extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
     with BeforeAndAfterAll
