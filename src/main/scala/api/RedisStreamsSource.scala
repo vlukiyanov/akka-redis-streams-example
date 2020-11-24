@@ -2,6 +2,7 @@ package api
 
 import akka.actor.Cancellable
 import akka.Done
+import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Source
 import io.lettuce.core.{Consumer, StreamMessage, XReadArgs}
 import io.lettuce.core.api.reactive.RedisReactiveCommands
@@ -21,6 +22,7 @@ object RedisStreamsSource {
       consumer: String): Source[StreamMessage[String, String], Cancellable] = {
     Source
       .tick(0 millisecond, 100 millisecond, Done)
+      .buffer(10, OverflowStrategy.dropTail)
       .flatMapConcat(
         _ =>
           Source.fromPublisher(
