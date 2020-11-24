@@ -1,7 +1,7 @@
 package api
 
 import akka.actor.Cancellable
-import akka.{Done, NotUsed}
+import akka.Done
 import akka.stream.scaladsl.Source
 import io.lettuce.core.{Consumer, StreamMessage, XReadArgs}
 import io.lettuce.core.api.reactive.RedisReactiveCommands
@@ -9,6 +9,10 @@ import io.lettuce.core.api.reactive.RedisReactiveCommands
 import scala.language.postfixOps
 import scala.concurrent.duration.DurationInt
 
+/*
+  Create a Source from a Redis stream, this uses XREADGROUP method for a given
+  consumer group and consumer name.
+ */
 object RedisStreamsSource {
   def create(
       redis: RedisReactiveCommands[String, String],
