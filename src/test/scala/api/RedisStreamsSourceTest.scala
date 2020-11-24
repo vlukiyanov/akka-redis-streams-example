@@ -32,9 +32,9 @@ class RedisStreamsSourceTest
       val reactiveCommands = client.connect.reactive()
       commands.xtrim("testStream", 0)
 
-      val l: List[String] = for {
-        _ <- 1 to 100 toList
-      } yield commands.xadd("testStream", Map("a" -> "b").asJava)
+      (1 to 100).foreach { _ =>
+        commands.xadd("testStream", Map("a" -> "b").asJava)
+      }
 
       try {
         commands.xgroupDestroy("testStream", "testGroup")

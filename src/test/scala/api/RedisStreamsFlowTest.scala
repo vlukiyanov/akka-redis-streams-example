@@ -5,46 +5,40 @@ import akka.actor.ActorSystem
 import scala.language.postfixOps
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Keep
-import akka.stream.testkit.{TestPublisher, TestSubscriber}
 import akka.stream.testkit.scaladsl.{TestSink, TestSource}
 import akka.testkit.TestKit
-import org.redisson.Redisson
-import org.redisson.api.{RStream, StreamMessageId}
-import org.redisson.client.codec.StringCodec
+import io.lettuce.core.{RedisClient, StreamMessage, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.wordspec.AnyWordSpecLike
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 
-class RedisStreamsFlowTest extends TestKit(ActorSystem("TestingAkkaStreams"))
-  with AnyWordSpecLike
-  with BeforeAndAfterAll
-  with Eventually {
+class RedisStreamsFlowTest
+    extends TestKit(ActorSystem("TestingAkkaStreams"))
+    with AnyWordSpecLike
+    with BeforeAndAfterAll
+    with Eventually {
 
   implicit val materializer = ActorMaterializer()
 
   override def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 
   "A RedisStreamsFlow" must {
-    "must be setup to add all message sent" in {
-      val redisson = Redisson.create
-      val s: RStream[String, String] = redisson.getStream("testStream", new StringCodec("UTF-8"))
-      s.trim(0)
-      try {
-        s.removeGroup("testGroup")
-        s.createGroup("testGroup")
-      } catch {
-        case _: Throwable => println("Group already exists.")
-      }
+    "must be setup to accept all messages sent" in {
+      val client: RedisClient = RedisClient.create("redis://localhost")
+      val commands = client.connect.sync()
+      val reactiveCommands = client.connect.reactive()
+      commands.xtrim("testStream", 0)
 
-      val flow = RedisStreamsFlow.create("testStream")
+      val flow = RedisStreamsFlow.create(reactiveCommands, "testStream")
 
       val testSource = TestSource.probe[Map[String, String]]
-      val testSink = TestSink.probe[StreamMessageId]
+      val testSink = TestSink.probe[String]
 
       val f = testSource.viaMat(flow)(Keep.left).toMat(testSink)(Keep.both)
-      val (testSourceProbe, testSinkProbe): (TestPublisher.Probe[Map[String, String]], TestSubscriber.Probe[StreamMessageId]) = f.run()
+      val (testSourceProbe, testSinkProbe) = f.run()
 
       testSourceProbe.sendNext(Map("a" -> "b", "c" -> "d"))
       testSinkProbe.request(1)
@@ -60,8 +54,10 @@ class RedisStreamsFlowTest extends TestKit(ActorSystem("TestingAkkaStreams"))
       testSinkProbe.expectNoMessage(1.seconds)
 
       eventually {
-        val p = s.size()
-        assert(p == 2)
+        val p = commands
+          .xread(XReadArgs.StreamOffset.from("testStream", "0-0"))
+          .asScala
+        assert(p.length == 2)
       }
 
     }
