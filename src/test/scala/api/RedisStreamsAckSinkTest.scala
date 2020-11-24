@@ -4,18 +4,15 @@ import akka.actor.ActorSystem
 
 import scala.language.postfixOps
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Keep
-import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import io.lettuce.core.{RedisClient, StreamMessage, XReadArgs}
+import io.lettuce.core.{RedisClient, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.DurationInt
 
-class RedisStreamsSourceTest
+class RedisStreamsAckSinkTest
     extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
     with BeforeAndAfterAll
