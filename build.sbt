@@ -7,7 +7,7 @@ scalaVersion := "2.13.1"
 lazy val akkaVersion = "2.6.10"
 
 libraryDependencies ++= Seq(
-  "org.redisson" % "redisson" % "3.13.6",
+  "io.lettuce" % "lettuce-core" % "6.0.1.RELEASE",
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-stream-testkit" % akkaVersion % Test,
   "com.typesafe.akka" %% "akka-stream" % akkaVersion,
