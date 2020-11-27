@@ -29,10 +29,10 @@ class RedisStreamsFlowTest
     "must be setup to accept all messages sent" in {
       val client: RedisClient = RedisClient.create("redis://localhost")
       val commands = client.connect.sync()
-      val reactiveCommands = client.connect.reactive()
+      val asyncCommands = client.connect.async()
       commands.xtrim("testStream", 0)
 
-      val flow = RedisStreamsFlow.create(reactiveCommands, "testStream")
+      val flow = RedisStreamsFlow.create(asyncCommands, "testStream")
 
       val testSource = TestSource.probe[Map[String, String]]
       val testSink = TestSink.probe[String]
