@@ -26,7 +26,7 @@ class RedisStreamsAckSinkTest
     "must be setup to accept all messages sent" in {
       val client: RedisClient = RedisClient.create("redis://localhost")
       val commands = client.connect.sync()
-      val reactiveCommands = client.connect.reactive()
+      val asyncCommands = client.connect.async()
       commands.xtrim("testStream", 0)
 
       (1 to 100).foreach { _ =>
@@ -46,13 +46,13 @@ class RedisStreamsAckSinkTest
         case _: Throwable => println("Group already exists.")
       }
 
-      val source = RedisStreamsSource.create(reactiveCommands,
+      val source = RedisStreamsSource.create(asyncCommands,
                                              "testStream",
                                              "testGroup",
                                              "testConsumer")
 
       val sink =
-        RedisStreamsAckSink.create(reactiveCommands, "testStream", "testGroup")
+        RedisStreamsAckSink.create(asyncCommands, "testStream", "testGroup")
 
       source.map(_.getId).to(sink)
 
