@@ -10,10 +10,10 @@ import io.lettuce.core.{RedisClient, XReadArgs}
 
 import scala.concurrent.duration.DurationInt
 
-object SimpleStreamConsumer extends App {
+object ConsumerExample extends App {
   val client: RedisClient = RedisClient.create("redis://localhost")
   val commands = client.connect.sync()
-  val reactiveCommands = client.connect.reactive()
+  val asyncCommands = client.connect.async()
 
   commands.xtrim("testStream", 0)
   try {
@@ -32,20 +32,8 @@ object SimpleStreamConsumer extends App {
   implicit val system = ActorSystem("FirstPrinciples")
   implicit val materializer = ActorMaterializer()
 
-  val redisStreamsFlow = RedisStreamsFlow.create(reactiveCommands, "testStream")
-  val messageSource = Source(1 to 1000000 map { i =>
-    Map(s"$i" -> "test")
-  })
 
-  system.eventStream.setLogLevel(Logging.ErrorLevel)
-
-  // start producing message to Redis
-  messageSource
-    .via(redisStreamsFlow)
-    .to(Sink.ignore)
-    .run()
-
-  val redisStreamsSource = RedisStreamsSource.create(reactiveCommands,
+  val redisStreamsSource = RedisStreamsSource.create(asyncCommands,
                                                      "testStream",
                                                      "testGroup",
                                                      "testConsumer")
@@ -55,7 +43,7 @@ object SimpleStreamConsumer extends App {
     .conflateWithSeed(_ => 0) { case (acc, _) => acc + 1 }
     .zip(Source.tick(1.second, 1.second, NotUsed))
     .map(_._1)
-    .toMat(Sink.foreach(i => println(s"$i elements/second")))(Keep.right)
+    .toMat(Sink.foreach(i => println(s"$i elements/second consumer")))(Keep.right)
     .run()
 
 }
