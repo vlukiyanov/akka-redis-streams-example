@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.ActorMaterializer
-import api.{RedisStreamsFlow, RedisStreamsSource}
+import api.RedisStreamsFlow
 import io.lettuce.core.{RedisClient, XReadArgs}
 
 import scala.concurrent.duration.DurationInt
