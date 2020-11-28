@@ -27,12 +27,12 @@ class RedisStreamsFlowTest
 
   "A RedisStreamsFlow" must {
     "must be setup to accept all messages sent" in {
-      val client: RedisClient = RedisClient.create("redis://localhost")
+      val client: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
       val commands = client.connect.sync()
       val asyncCommands = client.connect.async()
-      commands.xtrim("testStream", 0)
+      commands.xtrim("testStreamRedisStreamsFlow", 0)
 
-      val flow = RedisStreamsFlow.create(asyncCommands, "testStream")
+      val flow = RedisStreamsFlow.create(asyncCommands, "testStreamRedisStreamsFlow")
 
       val testSource = TestSource.probe[Map[String, String]]
       val testSink = TestSink.probe[String]
@@ -55,7 +55,7 @@ class RedisStreamsFlowTest
 
       eventually {
         val p = commands
-          .xread(XReadArgs.StreamOffset.from("testStream", "0-0"))
+          .xread(XReadArgs.StreamOffset.from("testStreamRedisStreamsFlow", "0-0"))
           .asScala
         assert(p.length == 2)
       }

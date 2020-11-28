@@ -27,30 +27,30 @@ class RedisStreamsSourceTest
 
   "A RedisStreamsSource" must {
     "must be setup to accept all messages sent" in {
-      val client: RedisClient = RedisClient.create("redis://localhost")
+      val client: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
       val commands = client.connect.sync()
       val asyncCommands = client.connect.async()
-      commands.xtrim("testStream", 0)
+      commands.xtrim("testStreamRedisStreamsSource", 0)
 
       (1 to 100).foreach { _ =>
-        commands.xadd("testStream", Map("a" -> "b").asJava)
+        commands.xadd("testStreamRedisStreamsSource", Map("a" -> "b").asJava)
       }
 
       try {
-        commands.xgroupDestroy("testStream", "testGroup")
+        commands.xgroupDestroy("testStreamRedisStreamsSource", "testGroup")
       } catch {
         case _: Throwable => println("Group doesn't exist.")
       }
 
       try {
-        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
+        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsSource", "0-0"),
                               "testGroup")
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
-                                             "testStream",
+                                             "testStreamRedisStreamsSource",
                                              "testGroup",
                                              "testConsumer")
 
@@ -64,7 +64,7 @@ class RedisStreamsSourceTest
       probe.expectNoMessage(1.second)
 
       eventually {
-        val p = commands.xpending("testStream", "testGroup")
+        val p = commands.xpending("testStreamRedisStreamsSource", "testGroup")
         assert(p.getCount == 100)
       }
 

@@ -22,42 +22,43 @@ class RedisStreamsAckSinkTest
 
   override def afterAll(): Unit = TestKit.shutdownActorSystem(system)
 
-  "A RedisStreamsSource" must {
+  "A RedisStreamsAckSink" must {
     "must be setup to accept all messages sent" in {
-      val client: RedisClient = RedisClient.create("redis://localhost")
+      val client: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
+
       val commands = client.connect.sync()
       val asyncCommands = client.connect.async()
-      commands.xtrim("testStream", 0)
+      commands.xtrim("testStreamRedisStreamsAckSink", 0)
 
       (1 to 100).foreach { _ =>
-        commands.xadd("testStream", Map("a" -> "b").asJava)
+        commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
       }
 
       try {
-        commands.xgroupDestroy("testStream", "testGroup")
+        commands.xgroupDestroy("testStreamRedisStreamsAckSink", "testGroup")
       } catch {
         case _: Throwable => println("Group doesn't exist.")
       }
 
       try {
-        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
+        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsAckSink", "0-0"),
                               "testGroup")
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
-                                             "testStream",
+                                             "testStreamRedisStreamsAckSink",
                                              "testGroup",
                                              "testConsumer")
 
       val sink =
-        RedisStreamsAckSink.create(asyncCommands, "testStream", "testGroup")
+        RedisStreamsAckSink.create(asyncCommands, "testStreamRedisStreamsAckSink", "testGroup")
 
       source.map(_.getId).to(sink)
 
       eventually {
-        val p = commands.xpending("testStream", "testGroup")
+        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
         assert(p.getCount == 0)
       }
 
