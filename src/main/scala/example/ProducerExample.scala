@@ -6,31 +6,15 @@ import akka.event.Logging
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.ActorMaterializer
 import api.RedisStreamsFlow
-import io.lettuce.core.{RedisClient, XReadArgs}
+import io.lettuce.core.RedisClient
 
 import scala.concurrent.duration.DurationInt
 
 object ProducerExample extends App {
   val client: RedisClient = RedisClient.create("redis://localhost")
-  val commands = client.connect.sync()
   val asyncCommands = client.connect.async()
-  val reactiveCommands = client.connect.reactive()
 
-  commands.xtrim("testStream", 0)
-  try {
-    commands.xgroupDestroy("testStream", "testGroup")
-  } catch {
-    case _: Throwable => println("Group doesn't exist.")
-  }
-
-  try {
-    commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
-      "testGroup")
-  } catch {
-    case _: Throwable => println("Group already exists.")
-  }
-
-  implicit val system = ActorSystem("FirstPrinciples")
+  implicit val system = ActorSystem("ProducerExample")
   implicit val materializer = ActorMaterializer()
 
   val redisStreamsFlow = RedisStreamsFlow.create(asyncCommands, "testStream")
@@ -38,13 +22,14 @@ object ProducerExample extends App {
 
   system.eventStream.setLogLevel(Logging.ErrorLevel)
 
-  // start producing message to Redis
+  // start producing message to Redis; the rate measurement is from https://stackoverflow.com/a/49279641
   messageSource
     .via(redisStreamsFlow)
     .conflateWithSeed(_ => 0) { case (acc, _) => acc + 1 }
     .zip(Source.tick(1.second, 1.second, NotUsed))
     .map(_._1)
-    .toMat(Sink.foreach(i => println(s"$i elements/second producer")))(Keep.right)
+    .toMat(Sink.foreach(i => println(s"$i elements/second producer")))(
+      Keep.right)
     .run()
 
 }

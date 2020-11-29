@@ -30,7 +30,7 @@ class RedisStreamsAckSinkTest
       val asyncCommands = client.connect.async()
       commands.xtrim("testStreamRedisStreamsAckSink", 0)
 
-      (1 to 100).foreach { _ =>
+      (1 to 10000).foreach { _ =>
         commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
       }
 
@@ -55,7 +55,10 @@ class RedisStreamsAckSinkTest
       val sink =
         RedisStreamsAckSink.create(asyncCommands, "testStreamRedisStreamsAckSink", "testGroup")
 
-      source.map(_.getId).to(sink)
+      source
+        .map(_.getId)
+        .to(sink)
+        .run()
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")

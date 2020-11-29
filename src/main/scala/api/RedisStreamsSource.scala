@@ -24,11 +24,12 @@ object RedisStreamsSource {
       consumer: String): Source[StreamMessage[String, String], Cancellable] = {
     Source
       .tick(0 millisecond, 100 millisecond, Done)
-      .buffer(10, OverflowStrategy.dropTail)
-      .mapAsync(8) { _ =>
+      .buffer(60, OverflowStrategy.dropTail)
+      .mapAsync(4) { _ =>
         redis
           .xreadgroup(
             Consumer.from(group, consumer),
+            XReadArgs.Builder.count(100000),
             XReadArgs.StreamOffset.lastConsumed(stream)
           )
           .asScala

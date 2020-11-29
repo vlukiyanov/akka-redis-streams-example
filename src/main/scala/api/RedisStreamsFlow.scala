@@ -5,7 +5,7 @@ import akka.stream.scaladsl.Flow
 import io.lettuce.core.api.async.RedisAsyncCommands
 
 import scala.collection.JavaConverters._
-import scala.concurrent.ExecutionContext.Implicits.global // TODO do not use in production!
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.jdk.FutureConverters._
@@ -24,7 +24,8 @@ object RedisStreamsFlow {
       .mapAsync(4) { elems =>
         {
           val futures =
-            elems.map(elem => redis.xadd(stream, elem.asJava).asScala)
+            elems
+              .map(elem => redis.xadd(stream, elem.asJava).asScala)
           redis.flushCommands()
           Future.sequence(futures)
         }

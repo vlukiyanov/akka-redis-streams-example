@@ -14,31 +14,32 @@ object ConsumerExample extends App {
   val commands = client.connect.sync()
   val asyncCommands = client.connect.async()
 
-  commands.xtrim("testStream", 0)
   try {
     commands.xgroupDestroy("testStream", "testGroup")
+    println("Deleted group")
   } catch {
     case _: Throwable => println("Group doesn't exist.")
   }
 
   try {
     commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
-                          "testGroup")
+      "testGroup")
+    println("Created group")
   } catch {
     case _: Throwable => println("Group already exists.")
   }
 
-  implicit val system = ActorSystem("FirstPrinciples")
+  implicit val system = ActorSystem("ConsumerExample")
   implicit val materializer = ActorMaterializer()
 
 
   val redisStreamsSource = RedisStreamsSource.create(asyncCommands,
-                                                     "testStream",
-                                                     "testGroup",
-                                                     "testConsumer")
+    "testStream",
+    "testGroup",
+    "testConsumer")
 
   // do no ack the messages; the rate measurement is from https://stackoverflow.com/a/49279641
-  redisStreamsSource.async
+  redisStreamsSource
     .conflateWithSeed(_ => 0) { case (acc, _) => acc + 1 }
     .zip(Source.tick(1.second, 1.second, NotUsed))
     .map(_._1)
