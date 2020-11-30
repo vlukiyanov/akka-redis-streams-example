@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import scala.language.postfixOps
 import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
-import io.lettuce.core.{Consumer, RedisClient, XReadArgs}
+import io.lettuce.core.{Consumer, RedisClient, XGroupCreateArgs, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Millis, Seconds, Span}
@@ -16,10 +16,12 @@ import scala.collection.JavaConverters._
 // These test are slightly rudimentary, mostly used when writing the code to test assumptions - require running Redis
 
 class RedisStreamsAckSinkTest
-    extends TestKit(ActorSystem("TestingAkkaStreams"))
+  extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
     with BeforeAndAfterAll
     with Eventually {
+
+  implicit override val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(500, Millis)))
 
   implicit val materializer = ActorMaterializer()
 
@@ -43,9 +45,13 @@ class RedisStreamsAckSinkTest
 
       try {
         commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsAckSink", "0-0"),
-                              "testGroupAckSink")
+          "testGroupAckSink", XGroupCreateArgs.Builder.mkstream())
       } catch {
         case _: Throwable => println("Group already exists.")
+      }
+
+      eventually {
+        commands.xinfoGroups("testStreamRedisStreamsAckSink").size() == 1
       }
 
       (1 to 10000).foreach { _ =>
@@ -53,9 +59,9 @@ class RedisStreamsAckSinkTest
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
-                                             "testStreamRedisStreamsAckSink",
-                                             "testGroupAckSink",
-                                             "testConsumer")
+        "testStreamRedisStreamsAckSink",
+        "testGroupAckSink",
+        "testConsumer")
 
       val sink =
         RedisStreamsAckSink.create(asyncCommandsSink, "testGroupAckSink", "testStreamRedisStreamsAckSink")
@@ -64,8 +70,6 @@ class RedisStreamsAckSinkTest
         .map(_.getId)
         .to(sink)
         .run()
-
-      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(500, Millis)))
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroupAckSink")

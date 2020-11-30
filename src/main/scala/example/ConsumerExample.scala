@@ -5,7 +5,7 @@ import akka.actor.ActorSystem
 import akka.stream.scaladsl.{Keep, Sink, Source}
 import akka.stream.ActorMaterializer
 import api.RedisStreamsSource
-import io.lettuce.core.{RedisClient, XReadArgs}
+import io.lettuce.core.{RedisClient, XGroupCreateArgs, XReadArgs}
 
 import scala.concurrent.duration.DurationInt
 
@@ -23,7 +23,7 @@ object ConsumerExample extends App {
 
   try {
     commands.xgroupCreate(XReadArgs.StreamOffset.from("testStream", "0-0"),
-      "testGroup")
+      "testGroup", XGroupCreateArgs.Builder.mkstream())
     println("Created group")
   } catch {
     case _: Throwable => println("Group already exists.")

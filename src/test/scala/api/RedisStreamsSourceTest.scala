@@ -7,7 +7,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Keep
 import akka.stream.testkit.scaladsl.TestSink
 import akka.testkit.TestKit
-import io.lettuce.core.{RedisClient, StreamMessage, XReadArgs}
+import io.lettuce.core.{RedisClient, StreamMessage, XGroupCreateArgs, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -18,7 +18,7 @@ import scala.concurrent.duration.DurationInt
 // These test are slightly rudimentary, mostly used when writing the code to test assumptions - require running Redis
 
 class RedisStreamsSourceTest
-    extends TestKit(ActorSystem("TestingAkkaStreams"))
+  extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
     with BeforeAndAfterAll
     with Eventually {
@@ -46,15 +46,15 @@ class RedisStreamsSourceTest
 
       try {
         commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsSource", "0-0"),
-                              "testGroupSource")
+          "testGroupSource", XGroupCreateArgs.Builder.mkstream())
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
-                                             "testStreamRedisStreamsSource",
-                                             "testGroupSource",
-                                             "testConsumer")
+        "testStreamRedisStreamsSource",
+        "testGroupSource",
+        "testConsumer")
 
       val f =
         source.toMat(TestSink.probe[StreamMessage[String, String]])(Keep.right)
