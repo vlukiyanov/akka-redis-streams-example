@@ -8,6 +8,7 @@ import akka.testkit.TestKit
 import io.lettuce.core.{Consumer, RedisClient, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Millis, Seconds, Span}
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.JavaConverters._
@@ -47,7 +48,7 @@ class RedisStreamsAckSinkTest
         case _: Throwable => println("Group already exists.")
       }
 
-      (1 to 10).foreach { _ =>
+      (1 to 10000).foreach { _ =>
         commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
       }
 
@@ -57,17 +58,19 @@ class RedisStreamsAckSinkTest
                                              "testConsumer")
 
       val sink =
-        RedisStreamsAckSink.create(asyncCommandsSink, "testStreamRedisStreamsAckSink", "testGroup")
-
-      eventually {
-        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
-        assert(p.getCount == 1)
-      }
+        RedisStreamsAckSink.create(asyncCommandsSink, "testGroup", "testStreamRedisStreamsAckSink")
 
       source
         .map(_.getId)
         .to(sink)
         .run()
+
+      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(2, Seconds)), interval = scaled(Span(10, Millis)))
+
+      eventually {
+        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
+        assert(p.getCount > 0)
+      }
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
