@@ -5,12 +5,14 @@ import akka.actor.ActorSystem
 import scala.language.postfixOps
 import akka.stream.ActorMaterializer
 import akka.testkit.TestKit
-import io.lettuce.core.{RedisClient, XReadArgs}
+import io.lettuce.core.{Consumer, RedisClient, XReadArgs}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.collection.JavaConverters._
+
+// These test are slightly rudimentary, mostly used when writing the code to test assumptions - require running Redis
 
 class RedisStreamsAckSinkTest
     extends TestKit(ActorSystem("TestingAkkaStreams"))
@@ -25,14 +27,12 @@ class RedisStreamsAckSinkTest
   "A RedisStreamsAckSink" must {
     "must be setup to accept all messages sent" in {
       val client: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
+      val clientSink: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
 
       val commands = client.connect.sync()
       val asyncCommands = client.connect.async()
+      val asyncCommandsSink = clientSink.connect.async()
       commands.xtrim("testStreamRedisStreamsAckSink", 0)
-
-      (1 to 100).foreach { _ =>
-        commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
-      }
 
       try {
         commands.xgroupDestroy("testStreamRedisStreamsAckSink", "testGroup")
@@ -47,13 +47,28 @@ class RedisStreamsAckSinkTest
         case _: Throwable => println("Group already exists.")
       }
 
+      (1 to 11).foreach { _ =>
+        commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
+      }
+
+      commands.xreadgroup(
+        Consumer.from("testGroup", "testConsumerPre"),
+        XReadArgs.Builder.count(1),
+        XReadArgs.StreamOffset.lastConsumed("testStreamRedisStreamsAckSink")
+      )
+
       val source = RedisStreamsSource.create(asyncCommands,
                                              "testStreamRedisStreamsAckSink",
                                              "testGroup",
                                              "testConsumer")
 
       val sink =
-        RedisStreamsAckSink.create(asyncCommands, "testStreamRedisStreamsAckSink", "testGroup")
+        RedisStreamsAckSink.create(asyncCommandsSink, "testStreamRedisStreamsAckSink", "testGroup")
+
+      eventually {
+        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
+        assert(p.getCount == 1)
+      }
 
       source
         .map(_.getId)
@@ -62,7 +77,7 @@ class RedisStreamsAckSinkTest
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
-        assert(p.getCount == 0)
+        assert(p.getCount == 1)
       }
 
     }

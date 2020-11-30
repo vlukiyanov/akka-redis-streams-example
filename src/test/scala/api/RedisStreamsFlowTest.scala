@@ -15,6 +15,8 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt
 
+// These test are slightly rudimentary, mostly used when writing the code to test assumptions - require running Redis
+
 class RedisStreamsFlowTest
     extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
