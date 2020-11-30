@@ -1,4 +1,5 @@
 # akka-redis-streams-example
-An simple proof of concept example using Redis streams in Akka streams which provides 3 components:
+
+Just a simple exploration and example used in this writeup https://vlukiyanov.github.io/exploring-redis-streams-with-akka-streams/
 
 ![default](https://github.com/vlukiyanov/akka-redis-streams-example/workflows/default/badge.svg)
