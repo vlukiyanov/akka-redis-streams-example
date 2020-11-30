@@ -39,21 +39,21 @@ class RedisStreamsSourceTest
       }
 
       try {
-        commands.xgroupDestroy("testStreamRedisStreamsSource", "testGroup")
+        commands.xgroupDestroy("testStreamRedisStreamsSource", "testGroupSource")
       } catch {
         case _: Throwable => println("Group doesn't exist.")
       }
 
       try {
         commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsSource", "0-0"),
-                              "testGroup")
+                              "testGroupSource")
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
                                              "testStreamRedisStreamsSource",
-                                             "testGroup",
+                                             "testGroupSource",
                                              "testConsumer")
 
       val f =
@@ -66,7 +66,7 @@ class RedisStreamsSourceTest
       probe.expectNoMessage(1.second)
 
       eventually {
-        val p = commands.xpending("testStreamRedisStreamsSource", "testGroup")
+        val p = commands.xpending("testStreamRedisStreamsSource", "testGroupSource")
         assert(p.getCount == 100)
       }
 

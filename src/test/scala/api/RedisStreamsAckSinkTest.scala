@@ -36,14 +36,14 @@ class RedisStreamsAckSinkTest
       commands.xtrim("testStreamRedisStreamsAckSink", 0)
 
       try {
-        commands.xgroupDestroy("testStreamRedisStreamsAckSink", "testGroup")
+        commands.xgroupDestroy("testStreamRedisStreamsAckSink", "testGroupAckSink")
       } catch {
         case _: Throwable => println("Group doesn't exist.")
       }
 
       try {
         commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsAckSink", "0-0"),
-                              "testGroup")
+                              "testGroupAckSink")
       } catch {
         case _: Throwable => println("Group already exists.")
       }
@@ -54,26 +54,26 @@ class RedisStreamsAckSinkTest
 
       val source = RedisStreamsSource.create(asyncCommands,
                                              "testStreamRedisStreamsAckSink",
-                                             "testGroup",
+                                             "testGroupAckSink",
                                              "testConsumer")
 
       val sink =
-        RedisStreamsAckSink.create(asyncCommandsSink, "testGroup", "testStreamRedisStreamsAckSink")
+        RedisStreamsAckSink.create(asyncCommandsSink, "testGroupAckSink", "testStreamRedisStreamsAckSink")
 
       source
         .map(_.getId)
         .to(sink)
         .run()
 
-      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(10, Millis)))
+      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(500, Millis)))
 
       eventually {
-        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
+        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroupAckSink")
         assert(p.getCount > 0)
       }
 
       eventually {
-        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
+        val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroupAckSink")
         assert(p.getCount == 0)
       }
 
