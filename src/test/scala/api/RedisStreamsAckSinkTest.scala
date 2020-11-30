@@ -30,7 +30,7 @@ class RedisStreamsAckSinkTest
       val asyncCommands = client.connect.async()
       commands.xtrim("testStreamRedisStreamsAckSink", 0)
 
-      (1 to 10000).foreach { _ =>
+      (1 to 100).foreach { _ =>
         commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
       }
 
