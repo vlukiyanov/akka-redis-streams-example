@@ -18,7 +18,7 @@ import scala.concurrent.duration.DurationInt
 // These test are slightly rudimentary, mostly used when writing the code to test assumptions - require running Redis
 
 class RedisStreamsSourceTest
-  extends TestKit(ActorSystem("TestingAkkaStreams"))
+    extends TestKit(ActorSystem("TestingAkkaStreams"))
     with AnyWordSpecLike
     with BeforeAndAfterAll
     with Eventually {
@@ -29,7 +29,8 @@ class RedisStreamsSourceTest
 
   "A RedisStreamsSource" must {
     "must be setup to accept all messages sent" in {
-      val client: RedisClient = RedisClient.create(scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
+      val client: RedisClient = RedisClient.create(
+        scala.util.Properties.envOrElse("REDIS_URL", "redis://localhost"))
       val commands = client.connect.sync()
       val asyncCommands = client.connect.async()
       commands.xtrim("testStreamRedisStreamsSource", 0)
@@ -39,22 +40,25 @@ class RedisStreamsSourceTest
       }
 
       try {
-        commands.xgroupDestroy("testStreamRedisStreamsSource", "testGroupSource")
+        commands.xgroupDestroy("testStreamRedisStreamsSource",
+                               "testGroupSource")
       } catch {
         case _: Throwable => println("Group doesn't exist.")
       }
 
       try {
-        commands.xgroupCreate(XReadArgs.StreamOffset.from("testStreamRedisStreamsSource", "0-0"),
-          "testGroupSource", XGroupCreateArgs.Builder.mkstream())
+        commands.xgroupCreate(
+          XReadArgs.StreamOffset.from("testStreamRedisStreamsSource", "0-0"),
+          "testGroupSource",
+          XGroupCreateArgs.Builder.mkstream())
       } catch {
         case _: Throwable => println("Group already exists.")
       }
 
       val source = RedisStreamsSource.create(asyncCommands,
-        "testStreamRedisStreamsSource",
-        "testGroupSource",
-        "testConsumer")
+                                             "testStreamRedisStreamsSource",
+                                             "testGroupSource",
+                                             "testConsumer")
 
       val f =
         source.toMat(TestSink.probe[StreamMessage[String, String]])(Keep.right)
@@ -66,7 +70,8 @@ class RedisStreamsSourceTest
       probe.expectNoMessage(1.second)
 
       eventually {
-        val p = commands.xpending("testStreamRedisStreamsSource", "testGroupSource")
+        val p =
+          commands.xpending("testStreamRedisStreamsSource", "testGroupSource")
         assert(p.getCount == 100)
       }
 
