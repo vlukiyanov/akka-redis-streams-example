@@ -47,15 +47,9 @@ class RedisStreamsAckSinkTest
         case _: Throwable => println("Group already exists.")
       }
 
-      (1 to 11).foreach { _ =>
+      (1 to 10).foreach { _ =>
         commands.xadd("testStreamRedisStreamsAckSink", Map("a" -> "b").asJava)
       }
-
-      commands.xreadgroup(
-        Consumer.from("testGroup", "testConsumer"),
-        XReadArgs.Builder.count(1),
-        XReadArgs.StreamOffset.lastConsumed("testStreamRedisStreamsAckSink")
-      )
 
       val source = RedisStreamsSource.create(asyncCommands,
                                              "testStreamRedisStreamsAckSink",
@@ -77,7 +71,7 @@ class RedisStreamsAckSinkTest
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
-        assert(p.getCount == 1)
+        assert(p.getCount == 0)
       }
 
     }
