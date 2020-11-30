@@ -24,7 +24,6 @@ object RedisStreamsSource {
       consumer: String): Source[StreamMessage[String, String], Cancellable] = {
     Source
       .tick(0 millisecond, 100 millisecond, Done)
-      .buffer(60, OverflowStrategy.dropTail)
       .mapAsync(4) { _ =>
         redis
           .xreadgroup(

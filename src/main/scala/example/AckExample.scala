@@ -56,7 +56,6 @@ object AckExample extends App {
 
   val redisStreamAckSink = RedisStreamsAckSink.create(asyncCommandsConsumer, "testGroup", "testStream")
 
-  // do no ack the messages; the rate measurement is from https://stackoverflow.com/a/49279641
   redisStreamsSource
     .map(_.getId)
     .to(redisStreamAckSink)
