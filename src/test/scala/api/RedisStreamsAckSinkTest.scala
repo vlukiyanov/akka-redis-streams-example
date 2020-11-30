@@ -52,7 +52,7 @@ class RedisStreamsAckSinkTest
       }
 
       commands.xreadgroup(
-        Consumer.from("testGroup", "testConsumerPre"),
+        Consumer.from("testGroup", "testConsumer"),
         XReadArgs.Builder.count(1),
         XReadArgs.StreamOffset.lastConsumed("testStreamRedisStreamsAckSink")
       )
