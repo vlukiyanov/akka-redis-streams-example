@@ -65,7 +65,7 @@ class RedisStreamsAckSinkTest
         .to(sink)
         .run()
 
-      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(2, Seconds)), interval = scaled(Span(10, Millis)))
+      implicit val patienceConfig: PatienceConfig = PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(10, Millis)))
 
       eventually {
         val p = commands.xpending("testStreamRedisStreamsAckSink", "testGroup")
